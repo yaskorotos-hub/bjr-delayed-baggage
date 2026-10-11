@@ -1,1 +1,1222 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ethiopian Airlines - BJR Delayed Baggage Management</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            et: {
+              green: '#006B3F',
+              greenDark: '#004d2d',
+              gold: '#FCD116',
+              red: '#D21034',
+              dark: '#0B132B',
+              surface: '#1C2541'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #006B3F; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #FCD116; }
+    
+    .active-tab {
+      border-bottom: 3px solid #FCD116;
+      color: #FCD116 !important;
+    }
 
+    @media print {
+      body * { visibility: hidden; }
+      #pirPrintDocument, #pirPrintDocument * { visibility: visible; }
+      #pirPrintDocument { position: absolute; left: 0; top: 0; width: 100%; color: black !important; background: white !important; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col font-sans antialiased bg-slate-950 text-slate-100">
+
+  <header class="bg-gradient-to-r from-et-green via-emerald-900 to-slate-900 border-b border-et-gold/30 px-6 py-3 shadow-xl flex flex-wrap justify-between items-center z-20 gap-4 no-print">
+    <div class="flex items-center space-x-4">
+      <div class="w-10 h-10 rounded-full bg-et-gold flex items-center justify-center font-bold text-et-green text-xl shadow-lg border-2 border-white">
+        ET
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <h1 class="text-xl font-extrabold tracking-tight text-white uppercase">ETHIOPIAN AIRLINES</h1>
+          <span class="bg-et-gold text-slate-950 text-xs font-bold px-2 py-0.5 rounded shadow">BJR STATION</span>
+        </div>
+        <p class="text-xs text-emerald-200 font-medium">Baggage Tracing & Delayed Rush Recovery Portal • Bahir Dar</p>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs & Primary Actions -->
+    <div class="flex items-center space-x-3 text-xs sm:text-sm">
+      <nav class="flex space-x-4 mr-4 border-r border-emerald-700/50 pr-4">
+        <button id="navDashboard" onclick="switchTab('dashboard')" class="text-slate-200 font-bold hover:text-et-gold py-1 transition active-tab flex items-center gap-1.5">
+          <i class="fa-solid fa-table-list"></i> Dashboard
+        </button>
+        <button id="navAnalytics" onclick="switchTab('analytics')" class="text-slate-200 font-bold hover:text-et-gold py-1 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-chart-pie"></i> Performance & Analytics
+        </button>
+      </nav>
+
+      <div class="bg-slate-900/80 px-3 py-1.5 rounded-lg border border-emerald-500/30 hidden md:flex items-center space-x-2">
+        <i class="fa-solid fa-location-dot text-et-gold"></i>
+        <span class="text-xs">Station: <strong class="text-et-gold">BJR (Bahir Dar)</strong></span>
+      </div>
+      <button onclick="exportCSV()" class="bg-emerald-700 hover:bg-emerald-600 text-white font-semibold px-3 py-1.5 rounded-lg border border-emerald-400/40 transition flex items-center space-x-1.5 shadow">
+        <i class="fa-solid fa-file-csv"></i>
+        <span class="hidden sm:inline">Export CSV</span>
+      </button>
+      <button onclick="openRecordModal()" class="bg-et-gold hover:bg-yellow-400 text-slate-950 font-bold px-4 py-1.5 rounded-lg transition shadow-md flex items-center space-x-2">
+        <i class="fa-solid fa-plus-circle"></i>
+        <span>Register Delayed Bag</span>
+      </button>
+    </div>
+  </header>
+
+  <main id="viewDashboard" class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full no-print">
+
+    <!-- KPI Metrics Grid -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5 mb-6">
+      <div class="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 shadow-sm">
+        <div class="flex justify-between items-start">
+          <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Records</p>
+          <span class="p-1.5 bg-slate-800 text-slate-300 rounded-lg text-xs"><i class="fa-solid fa-boxes-stacked"></i></span>
+        </div>
+        <h3 id="statTotal" class="text-2xl font-black text-white mt-2">0</h3>
+        <p class="text-[10px] text-slate-400 mt-1">BJR Station Logs</p>
+      </div>
+
+      <div class="bg-slate-900/90 p-4 rounded-2xl border border-amber-500/30 shadow-sm">
+        <div class="flex justify-between items-start">
+          <p class="text-[11px] font-bold text-amber-400 uppercase tracking-wider">On-Hand Warehouse</p>
+          <span class="p-1.5 bg-amber-500/20 text-amber-300 rounded-lg text-xs"><i class="fa-solid fa-warehouse"></i></span>
+        </div>
+        <h3 id="statOnHand" class="text-2xl font-black text-amber-400 mt-2">0</h3>
+        <p class="text-[10px] text-amber-500/80 mt-1">Awaiting Pax Pickup</p>
+      </div>
+
+      <div class="bg-slate-900/90 p-4 rounded-2xl border border-blue-500/30 shadow-sm">
+        <div class="flex justify-between items-start">
+          <p class="text-[11px] font-bold text-blue-400 uppercase tracking-wider">In-Transit / Rushed</p>
+          <span class="p-1.5 bg-blue-500/20 text-blue-300 rounded-lg text-xs"><i class="fa-solid fa-plane-circle-check"></i></span>
+        </div>
+        <h3 id="statInTransit" class="text-2xl font-black text-blue-400 mt-2">0</h3>
+        <p class="text-[10px] text-blue-400/80 mt-1">Forwarding to BJR</p>
+      </div>
+
+      <div class="bg-slate-900/90 p-4 rounded-2xl border border-emerald-500/30 shadow-sm">
+        <div class="flex justify-between items-start">
+          <p class="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Delivered</p>
+          <span class="p-1.5 bg-emerald-500/20 text-emerald-300 rounded-lg text-xs"><i class="fa-solid fa-circle-check"></i></span>
+        </div>
+        <h3 id="statDelivered" class="text-2xl font-black text-emerald-400 mt-2">0</h3>
+        <p class="text-[10px] text-emerald-500/80 mt-1">Handed to Owner</p>
+      </div>
+
+      <div class="bg-slate-900/90 p-4 rounded-2xl border border-purple-500/30 shadow-sm">
+        <div class="flex justify-between items-start">
+          <p class="text-[11px] font-bold text-purple-400 uppercase tracking-wider">Avg Delay Duration</p>
+          <span class="p-1.5 bg-purple-500/20 text-purple-300 rounded-lg text-xs"><i class="fa-solid fa-stopwatch"></i></span>
+        </div>
+        <h3 id="statAvgDelay" class="text-2xl font-black text-purple-300 mt-2">0 <span class="text-xs font-semibold">hrs</span></h3>
+        <p class="text-[10px] text-purple-400/80 mt-1">Original vs Actual</p>
+      </div>
+
+      <div class="bg-slate-900/90 p-4 rounded-2xl border border-red-500/30 shadow-sm">
+        <div class="flex justify-between items-start">
+          <p class="text-[11px] font-bold text-red-400 uppercase tracking-wider">Unplanned Flights</p>
+          <span class="p-1.5 bg-red-500/20 text-red-300 rounded-lg text-xs"><i class="fa-solid fa-triangle-exclamation"></i></span>
+        </div>
+        <h3 id="statUnplanned" class="text-2xl font-black text-red-400 mt-2">0</h3>
+        <p class="text-[10px] text-red-400/80 mt-1">Arrived off-schedule</p>
+      </div>
+    </div>
+
+    <!-- Filter & Search Controls Toolbar -->
+    <div class="bg-slate-900 rounded-2xl shadow-sm border border-slate-800 p-4 mb-6">
+      <div class="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+        
+        <!-- Universal Search Box -->
+        <div class="relative flex-1">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+          <input type="text" id="searchInput" placeholder="Search PIR Ref, Pax Name, Flight (ET 120, ET 188), Tag, Rush Tag, Agent..." 
+                 class="w-full pl-9 pr-4 py-2.5 text-xs bg-slate-950 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-et-green text-slate-100 placeholder-slate-500">
+        </div>
+
+        <!-- Filters -->
+        <div class="flex flex-wrap items-center gap-2 text-xs">
+          <!-- Status Filter -->
+          <select id="filterStatus" class="bg-slate-950 border border-slate-700 text-slate-200 font-medium rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-et-green">
+            <option value="ALL">All Baggage Statuses</option>
+            <option value="Warehouse/On-Hand">Warehouse / On-Hand</option>
+            <option value="In-Transit">In-Transit / Rushed</option>
+            <option value="Customs Hold">Customs Hold</option>
+            <option value="Delivered to Passenger">Delivered to Passenger</option>
+          </select>
+
+          <!-- Arrival Type Filter -->
+          <select id="filterArrivalCategory" class="bg-slate-950 border border-slate-700 text-slate-200 font-medium rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-et-green">
+            <option value="ALL">All Arrival Categories</option>
+            <option value="Original Flight">Arrived on Original Flight</option>
+            <option value="Planned Rush Flight">Arrived on Planned Rush Flight</option>
+            <option value="Unplanned / Alternative Flight">Arrived on Unplanned Flight</option>
+          </select>
+
+          <!-- Delay Severity Filter -->
+          <select id="filterDelaySeverity" class="bg-slate-950 border border-slate-700 text-slate-200 font-medium rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-et-green">
+            <option value="ALL">All Delay Times</option>
+            <option value="LOW">&lt; 12 Hours Delay</option>
+            <option value="MEDIUM">12 - 24 Hours Delay</option>
+            <option value="CRITICAL">&gt; 24 Hours Delay</option>
+          </select>
+
+          <!-- Reset Filters Button -->
+          <button onclick="resetFilters()" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium rounded-xl transition-colors">
+            <i class="fa-solid fa-arrows-rotate mr-1"></i> Reset
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Table Container -->
+    <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs text-slate-300">
+          <thead class="bg-slate-950 text-slate-400 uppercase font-bold text-[10px] border-b border-slate-800 tracking-wider">
+            <tr>
+              <th class="py-3 px-3.5">PIR File #</th>
+              <th class="py-3 px-3.5">Passenger Name</th>
+              <th class="py-3 px-3.5">Tag / Rush Tag</th>
+              <th class="py-3 px-3.5">Booked Flight</th>
+              <th class="py-3 px-3.5">Planned Rush</th>
+              <th class="py-3 px-3.5">Actual Arrival</th>
+              <th class="py-3 px-3.5">Arrival Type</th>
+              <th class="py-3 px-3.5">Delay</th>
+              <th class="py-3 px-3.5">Type & Weight</th>
+              <th class="py-3 px-3.5">Status</th>
+              <th class="py-3 px-3.5">Agent</th>
+              <th class="py-3 px-3.5 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="recordsTableBody" class="divide-y divide-slate-800/60 font-normal">
+            <!-- Populated dynamically -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Empty State -->
+      <div id="emptyState" class="hidden text-center py-12 px-4">
+        <i class="fa-solid fa-suitcase text-4xl text-slate-700 mb-3"></i>
+        <p class="text-sm font-semibold text-slate-400">No delayed baggage records found</p>
+        <p class="text-xs text-slate-600 mt-1">Try adjusting your filters or search query.</p>
+      </div>
+
+      <!-- Table Footer -->
+      <div class="bg-slate-950/60 px-4 py-3 border-t border-slate-800 flex justify-between items-center text-xs text-slate-400">
+        <div>Showing <strong id="recordCountDisplay" class="text-slate-200">0</strong> baggage entries</div>
+        <div class="text-[11px] text-slate-500"><i class="fa-solid fa-circle-info mr-1"></i> BJR Station Live Database</div>
+      </div>
+    </div>
+
+  </main>
+
+  <main id="viewAnalytics" class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full hidden no-print">
+    
+    <!-- Report Header Controls -->
+    <div class="bg-slate-900 rounded-2xl shadow-sm border border-slate-800 p-4 mb-6">
+      <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-chart-line text-et-gold"></i> BJR Station Baggage Performance & Delay Analytics
+          </h2>
+          <p class="text-xs text-slate-400">Weekly and Monthly delay analysis, root cause distributions, and rush flight delivery efficiency.</p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <select id="reportTimeframe" onchange="updateAnalyticsReport()" class="bg-slate-950 border border-slate-700 font-semibold text-slate-200 text-xs rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-et-green">
+            <option value="THIS_WEEK">Weekly Report (Current 7 Days)</option>
+            <option value="THIS_MONTH" selected>Monthly Report (Current 30 Days)</option>
+            <option value="ALL_TIME">All-Time BJR Station Data</option>
+          </select>
+
+          <button onclick="window.print()" class="px-4 py-2.5 bg-et-green hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors flex items-center gap-2 shadow-sm">
+            <i class="fa-solid fa-print"></i> Print Executive Summary
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analytics Executive KPI Summary -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div class="bg-slate-900 p-4.5 rounded-2xl border border-slate-800 shadow-sm">
+        <p class="text-xs font-bold text-slate-400 uppercase">Period Total Incidents</p>
+        <h3 id="repTotalBags" class="text-3xl font-black text-white mt-1">0</h3>
+        <p class="text-[11px] text-slate-500 mt-1">Delayed bags logged in period</p>
+      </div>
+
+      <div class="bg-slate-900 p-4.5 rounded-2xl border border-slate-800 shadow-sm">
+        <p class="text-xs font-bold text-slate-400 uppercase">Average Luggage Delay</p>
+        <h3 id="repAvgDelay" class="text-3xl font-black text-purple-300 mt-1">0 <span class="text-sm font-semibold">hrs</span></h3>
+        <p class="text-[11px] text-slate-500 mt-1">Original vs Actual BJR arrival</p>
+      </div>
+
+      <div class="bg-slate-900 p-4.5 rounded-2xl border border-slate-800 shadow-sm">
+        <p class="text-xs font-bold text-slate-400 uppercase">Planned Rush Efficiency</p>
+        <h3 id="repPlannedEfficiency" class="text-3xl font-black text-emerald-400 mt-1">0%</h3>
+        <p class="text-[11px] text-slate-500 mt-1">Arrived on scheduled rush flight</p>
+      </div>
+
+      <div class="bg-slate-900 p-4.5 rounded-2xl border border-slate-800 shadow-sm">
+        <p class="text-xs font-bold text-slate-400 uppercase">Unplanned Flight Rate</p>
+        <h3 id="repUnplannedRate" class="text-3xl font-black text-red-400 mt-1">0%</h3>
+        <p class="text-[11px] text-slate-500 mt-1">Arrived on uncoordinated flight</p>
+      </div>
+    </div>
+
+    <!-- Analytics Charts Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <!-- Root Cause Delay Reasons -->
+      <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-sm">
+        <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-4 flex items-center justify-between">
+          <span>Root Causes of Baggage Delays</span>
+          <i class="fa-solid fa-chart-bar text-slate-500"></i>
+        </h3>
+        <div class="h-64">
+          <canvas id="chartReasons"></canvas>
+        </div>
+      </div>
+
+      <!-- Arrival Category Classification -->
+      <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-sm">
+        <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-4 flex items-center justify-between">
+          <span>Flight Matching Accuracy (Original vs Rush vs Unplanned)</span>
+          <i class="fa-solid fa-chart-pie text-slate-500"></i>
+        </h3>
+        <div class="h-64">
+          <canvas id="chartCategories"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Severity Matrix Table -->
+    <div class="bg-slate-900 rounded-2xl shadow-sm border border-slate-800 p-5">
+      <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-3">Delay Duration Breakdown & Escalation Matrix</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs text-slate-300">
+          <thead>
+            <tr class="bg-slate-950 text-slate-400 uppercase font-bold border-b border-slate-800">
+              <th class="py-2.5 px-3">Severity Level</th>
+              <th class="py-2.5 px-3">Delay Timeframe</th>
+              <th class="py-2.5 px-3">Incident Count</th>
+              <th class="py-2.5 px-3">Percentage</th>
+              <th class="py-2.5 px-3">Station Handling Protocol</th>
+            </tr>
+          </thead>
+          <tbody id="severityMatrixBody" class="divide-y divide-slate-800">
+            <!-- Populated via JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <div id="recordModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden no-print">
+    <div class="bg-slate-900 text-slate-100 rounded-2xl shadow-2xl border border-slate-800 max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden">
+      
+      <!-- Modal Header -->
+      <div class="bg-et-green text-white px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="bg-white/10 p-2 rounded-lg">
+            <i class="fa-solid fa-suitcase-rolling text-et-gold text-lg"></i>
+          </div>
+          <div>
+            <h3 id="modalHeaderTitle" class="text-sm font-bold tracking-wide">Register BJR Delayed Baggage Record</h3>
+            <p class="text-[10px] text-emerald-100">BJR Station (Dejazmach Belay Zeleke International Airport)</p>
+          </div>
+        </div>
+        <button onclick="closeRecordModal()" class="text-white/80 hover:text-white text-xl">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Modal Form Body -->
+      <form id="recordForm" onsubmit="saveRecord(event)" class="p-6 overflow-y-auto space-y-4 flex-1 text-xs">
+        <input type="hidden" id="editRecordId">
+
+        <!-- Section 1: Agent & Reference Data -->
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+          <h4 class="font-bold text-et-gold uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+            <i class="fa-solid fa-id-card"></i> 1. Administrative & Reference
+          </h4>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Handling Agent Name *</label>
+              <input type="text" id="agentName" required placeholder="e.g. Samuel Tadesse (#BJR-402)" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg focus:ring-2 focus:ring-et-green focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">PIR File Number *</label>
+              <input type="text" id="fileNumber" required placeholder="e.g. BJRET10294" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg font-mono uppercase focus:ring-2 focus:ring-et-green focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Handling Station</label>
+              <input type="text" id="station" value="BJR / HDBD - Bahir Dar" readonly class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg font-bold text-slate-300">
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Passenger & Luggage Specs -->
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+          <h4 class="font-bold text-et-gold uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+            <i class="fa-solid fa-user-tag"></i> 2. Passenger & Luggage Specifications
+          </h4>
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <div class="sm:col-span-2">
+              <label class="block text-slate-300 font-semibold mb-1">Passenger Full Name *</label>
+              <input type="text" id="paxName" required placeholder="e.g. GETACHEW DEMISSIE MR" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg uppercase focus:ring-2 focus:ring-et-green focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Baggage Tag Number *</label>
+              <input type="text" id="tagNumber" required placeholder="e.g. ET784912" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg font-mono uppercase focus:ring-2 focus:ring-et-green focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Rush Tag Number (If Forwarded)</label>
+              <input type="text" id="rushTagNumber" placeholder="e.g. RUSH-ET9920" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg font-mono uppercase focus:ring-2 focus:ring-et-green focus:outline-none">
+            </div>
+
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Baggage Type *</label>
+              <select id="baggageType" required class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg focus:ring-2 focus:ring-et-green focus:outline-none">
+                <option value="Suitcase / Hard Shell">Suitcase / Hard Shell</option>
+                <option value="Soft Duffel Bag">Soft Duffel Bag</option>
+                <option value="Carton Box / Package">Carton Box / Package</option>
+                <option value="Backpack / Rucksack">Backpack / Rucksack</option>
+                <option value="Garment Bag">Garment Bag</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Weight (KG) *</label>
+              <input type="number" step="0.1" id="baggageWeight" required placeholder="e.g. 23.5" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg focus:ring-2 focus:ring-et-green focus:outline-none">
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-slate-300 font-semibold mb-1">Delay Reason *</label>
+              <select id="delayReason" required class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg focus:ring-2 focus:ring-et-green focus:outline-none">
+                <option value="Short Connection at Hub (ADD)">Short Connection at Hub (ADD)</option>
+                <option value="Aircraft Weight / Payload Offload">Aircraft Weight / Payload Offload</option>
+                <option value="Tag Misread / Misrouted">Tag Misread / Misrouted</option>
+                <option value="Loading / Ramp Handling Oversight">Loading / Ramp Handling Oversight</option>
+                <option value="Unclaimed on Belt">Unclaimed on Belt</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Flight Matrix & Schedule Calculation -->
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="font-bold text-et-gold uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+              <i class="fa-solid fa-plane"></i> 3. Flight Schedule & Arrival Timelines
+            </h4>
+            <span id="badgeDelayCalc" class="bg-purple-900/60 border border-purple-700 text-purple-300 font-mono font-bold px-2.5 py-0.5 rounded text-[11px]">Computed Delay: 0.0 hrs</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <!-- Original Flight -->
+            <div class="bg-slate-900 p-3 rounded-lg border border-slate-800">
+              <span class="block font-bold text-slate-300 mb-2 uppercase text-[10px]">Original Booked Flight</span>
+              <div class="space-y-2">
+                <div>
+                  <label class="text-slate-400 text-[10px]">Flight No (e.g. ET 120) *</label>
+                  <input type="text" id="origFlightNo" required placeholder="ET 120" class="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded font-bold uppercase">
+                </div>
+                <div>
+                  <label class="text-slate-400 text-[10px]">Scheduled Arrival *</label>
+                  <input type="datetime-local" id="origArrivalTime" required onchange="calculateDelayLive()" class="w-full px-2 py-1 bg-slate-950 border border-slate-700 rounded">
+                </div>
+              </div>
+            </div>
+
+            <!-- Planned Flight -->
+            <div class="bg-slate-900 p-3 rounded-lg border border-slate-800">
+              <span class="block font-bold text-slate-300 mb-2 uppercase text-[10px]">Planned Rush Flight</span>
+              <div class="space-y-2">
+                <div>
+                  <label class="text-slate-400 text-[10px]">Planned Flight No</label>
+                  <input type="text" id="plannedFlightNo" placeholder="ET 122" class="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded font-bold uppercase">
+                </div>
+                <div>
+                  <label class="text-slate-400 text-[10px]">Planned Arrival</label>
+                  <input type="datetime-local" id="plannedArrivalTime" class="w-full px-2 py-1 bg-slate-950 border border-slate-700 rounded">
+                </div>
+              </div>
+            </div>
+
+            <!-- Actual Flight -->
+            <div class="bg-slate-900 p-3 rounded-lg border border-slate-800">
+              <span class="block font-bold text-slate-300 mb-2 uppercase text-[10px]">Actual Bag Arrival Flight</span>
+              <div class="space-y-2">
+                <div>
+                  <label class="text-slate-400 text-[10px]">Actual Flight No *</label>
+                  <input type="text" id="actualFlightNo" required placeholder="ET 124" class="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded font-bold uppercase">
+                </div>
+                <div>
+                  <label class="text-slate-400 text-[10px]">Actual Arrival *</label>
+                  <input type="datetime-local" id="actualArrivalTime" required onchange="calculateDelayLive()" class="w-full px-2 py-1 bg-slate-950 border border-slate-700 rounded">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 4: Status & Warehouse Storage Location -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Current Baggage Status *</label>
+            <select id="bagStatus" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg font-bold focus:ring-2 focus:ring-et-green focus:outline-none">
+              <option value="Warehouse/On-Hand">Warehouse / On-Hand (BJR Baggage Room)</option>
+              <option value="In-Transit">In-Transit / Rushed from ADD</option>
+              <option value="Customs Hold">Customs Hold</option>
+              <option value="Delivered to Passenger">Delivered to Passenger</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Storage Location / Remarks</label>
+            <input type="text" id="remarks" placeholder="e.g. Stored in BJR Warehouse Shelf-B2. Passenger notified." class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg focus:ring-2 focus:ring-et-green focus:outline-none">
+          </div>
+        </div>
+
+        <!-- Modal Form Actions -->
+        <div class="pt-4 flex items-center justify-end space-x-3 border-t border-slate-800">
+          <button type="button" onclick="closeRecordModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl transition-colors">
+            Cancel
+          </button>
+          <button type="submit" class="px-6 py-2 bg-et-green hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition-all">
+            Save Incident Record
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+  <div id="pirPrintDocument" class="hidden print-only p-8 bg-white max-w-4xl mx-auto font-sans text-slate-900">
+    <!-- PIR Header -->
+    <div class="border-b-2 border-et-green pb-4 mb-6 flex justify-between items-start">
+      <div class="flex items-center space-x-3">
+        <div class="w-12 h-12 bg-et-green text-white rounded-xl flex items-center justify-center text-2xl font-black">ET</div>
+        <div>
+          <h1 class="text-2xl font-black text-et-green">ETHIOPIAN AIRLINES</h1>
+          <p class="text-xs text-slate-600 font-bold uppercase tracking-wide">Property Irregularity Report (PIR) - BJR Station</p>
+        </div>
+      </div>
+      <div class="text-right">
+        <span class="text-xs font-mono font-bold bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-300">PIR NO: <span id="pirFileNo"></span></span>
+        <p class="text-[10px] text-slate-500 mt-1" id="pirPrintDate"></p>
+      </div>
+    </div>
+
+    <!-- Passenger & Baggage Identifiers -->
+    <div class="grid grid-cols-2 gap-4 mb-6 text-xs">
+      <div class="border border-slate-300 p-4 rounded-xl">
+        <h4 class="font-bold text-slate-900 uppercase border-b pb-1.5 mb-2 text-[11px] text-et-green">Passenger & Agent Details</h4>
+        <p class="mb-1"><span class="text-slate-500">Passenger Name:</span> <strong id="pirPaxName"></strong></p>
+        <p class="mb-1"><span class="text-slate-500">Handling Agent:</span> <span id="pirAgent"></span></p>
+        <p><span class="text-slate-500">Station / Location:</span> <strong>BJR - Bahir Dar Airport</strong></p>
+      </div>
+
+      <div class="border border-slate-300 p-4 rounded-xl">
+        <h4 class="font-bold text-slate-900 uppercase border-b pb-1.5 mb-2 text-[11px] text-et-green">Baggage Specifications</h4>
+        <p class="mb-1"><span class="text-slate-500">Tag Number:</span> <strong id="pirTag" class="font-mono"></strong></p>
+        <p class="mb-1"><span class="text-slate-500">Rush Tag Number:</span> <strong id="pirRushTag" class="font-mono"></strong></p>
+        <p class="mb-1"><span class="text-slate-500">Bag Type / Weight:</span> <span id="pirTypeWeight"></span></p>
+        <p><span class="text-slate-500">Calculated Delay:</span> <strong id="pirDelayHours" class="text-red-600 font-mono"></strong> hours</p>
+      </div>
+    </div>
+
+    <!-- Flight Timeline -->
+    <div class="border border-slate-300 p-4 rounded-xl mb-6 text-xs">
+      <h4 class="font-bold text-slate-900 uppercase border-b pb-1.5 mb-3 text-[11px] text-et-green">Flight Timeline & Routing Comparison</h4>
+      <div class="grid grid-cols-3 gap-3">
+        <div class="bg-slate-50 p-2.5 rounded-lg border">
+          <span class="text-slate-500 font-bold block text-[10px]">Original Booked Flight</span>
+          <p class="font-mono font-bold text-sm text-slate-800" id="pirOrigFlight"></p>
+          <p class="text-[10px] text-slate-500" id="pirOrigTime"></p>
+        </div>
+        <div class="bg-slate-50 p-2.5 rounded-lg border">
+          <span class="text-slate-500 font-bold block text-[10px]">Planned Rush Flight</span>
+          <p class="font-mono font-bold text-sm text-slate-800" id="pirPlannedFlight"></p>
+          <p class="text-[10px] text-slate-500" id="pirPlannedTime"></p>
+        </div>
+        <div class="bg-slate-50 p-2.5 rounded-lg border">
+          <span class="text-slate-500 font-bold block text-[10px]">Actual Bag Arrival Flight</span>
+          <p class="font-mono font-bold text-sm text-et-green" id="pirActualFlight"></p>
+          <p class="text-[10px] text-slate-500" id="pirActualTime"></p>
+        </div>
+      </div>
+
+      <div class="mt-3 pt-3 border-t border-slate-200 flex justify-between items-center text-xs">
+        <span><strong>Arrival Classification:</strong> <span id="pirArrivalCategory" class="uppercase font-bold text-et-green"></span></span>
+        <span><strong>Primary Delay Cause:</strong> <span id="pirReason"></span></span>
+      </div>
+    </div>
+
+    <!-- Storage & Remarks -->
+    <div class="border border-slate-300 p-4 rounded-xl mb-8 text-xs">
+      <h4 class="font-bold text-slate-900 uppercase mb-1 text-[11px]">Storage Status & Handling Remarks</h4>
+      <p id="pirRemarks" class="italic text-slate-700 leading-relaxed"></p>
+    </div>
+
+    <!-- Signatures -->
+    <div class="grid grid-cols-2 gap-12 pt-8 text-xs">
+      <div>
+        <div class="border-b border-slate-400 h-10"></div>
+        <p class="mt-1 text-slate-500 font-semibold">Passenger Signature & Date</p>
+      </div>
+      <div>
+        <div class="border-b border-slate-400 h-10"></div>
+        <p class="mt-1 text-slate-500 font-semibold">BJR Baggage Handling Officer Stamp & Signature</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Sample Initial Data
+    const initialBjrRecords = [
+      {
+        id: 'BJR-2001',
+        agentName: 'Abebe Kebede (#BJR-102)',
+        fileNumber: 'BJRET10294',
+        station: 'BJR',
+        paxName: 'GETACHEW DEMISSIE MR',
+        tagNumber: 'ET482910',
+        rushTagNumber: 'RUSH-ET8012',
+        baggageType: 'Suitcase / Hard Shell',
+        baggageWeight: '22.5',
+        origFlightNo: 'ET 120',
+        origArrivalTime: '2026-10-10T09:30',
+        plannedFlightNo: 'ET 122',
+        plannedArrivalTime: '2026-10-10T15:30',
+        actualFlightNo: 'ET 122',
+        actualArrivalTime: '2026-10-10T15:45',
+        delayReason: 'Short Connection at Hub (ADD)',
+        bagStatus: 'Delivered to Passenger',
+        remarks: 'Baggage forwarded via planned rush flight ET 122. Delivered to passenger at airport.',
+        createdAt: '2026-10-10T09:30:00'
+      },
+      {
+        id: 'BJR-2002',
+        agentName: 'Tigist Alemu (#BJR-108)',
+        fileNumber: 'BJRET88201',
+        station: 'BJR',
+        paxName: 'MARTA GIDEON MS',
+        tagNumber: 'ET991823',
+        rushTagNumber: 'RUSH-ET1092',
+        baggageType: 'Soft Duffel Bag',
+        baggageWeight: '18.0',
+        origFlightNo: 'ET 120',
+        origArrivalTime: '2026-10-11T09:30',
+        plannedFlightNo: 'ET 122',
+        plannedArrivalTime: '2026-10-11T15:30',
+        actualFlightNo: 'ET 124',
+        actualArrivalTime: '2026-10-11T19:30',
+        delayReason: 'Aircraft Weight / Payload Offload',
+        bagStatus: 'Warehouse/On-Hand',
+        remarks: 'Offloaded due to payload. Arrived on ET 124. Stored in BJR Warehouse Bin A-2.',
+        createdAt: '2026-10-11T09:30:00'
+      },
+      {
+        id: 'BJR-2003',
+        agentName: 'Solomon Bekele (#BJR-205)',
+        fileNumber: 'BJRET44019',
+        station: 'BJR',
+        paxName: 'YONAS HADIS MR',
+        tagNumber: 'ET102938',
+        rushTagNumber: '',
+        baggageType: 'Carton Box / Package',
+        baggageWeight: '25.0',
+        origFlightNo: 'ET 122',
+        origArrivalTime: '2026-10-09T15:30',
+        plannedFlightNo: 'ET 122',
+        plannedArrivalTime: '2026-10-09T15:30',
+        actualFlightNo: 'ET 122',
+        actualArrivalTime: '2026-10-09T15:30',
+        delayReason: 'Unclaimed on Belt',
+        bagStatus: 'Warehouse/On-Hand',
+        remarks: 'Arrived on booked flight but uncollected on carousel. Safe in warehouse.',
+        createdAt: '2026-10-09T15:30:00'
+      }
+    ];
+
+    let records = [];
+    let reasonsChart = null;
+    let categoriesChart = null;
+
+    // Initialization
+    window.addEventListener('DOMContentLoaded', () => {
+      loadRecordsFromStorage();
+      setupSearchAndFilters();
+      renderRecordsTable();
+    });
+
+    function loadRecordsFromStorage() {
+      const stored = localStorage.getItem('bjr_delayed_baggage_data');
+      if (stored) {
+        try {
+          records = JSON.parse(stored);
+        } catch (e) {
+          records = [...initialBjrRecords];
+        }
+      } else {
+        records = [...initialBjrRecords];
+        saveRecordsToStorage();
+      }
+    }
+
+    function saveRecordsToStorage() {
+      localStorage.setItem('bjr_delayed_baggage_data', JSON.stringify(records));
+    }
+
+    function computeDelayHours(origTime, actualTime) {
+      if (!origTime || !actualTime) return 0;
+      const orig = new Date(origTime);
+      const actual = new Date(actualTime);
+      const diffHours = (actual - orig) / (1000 * 60 * 60);
+      return diffHours > 0 ? parseFloat(diffHours.toFixed(1)) : 0;
+    }
+
+    function computeArrivalCategory(origFlight, plannedFlight, actualFlight) {
+      const clean = str => (str || '').trim().replace(/\s+/g, '').toUpperCase();
+      const orig = clean(origFlight);
+      const planned = clean(plannedFlight);
+      const actual = clean(actualFlight);
+
+      if (actual === orig) {
+        return 'Original Flight';
+      } else if (planned && actual === planned) {
+        return 'Planned Rush Flight';
+      } else {
+        return 'Unplanned / Alternative Flight';
+      }
+    }
+
+    function setupSearchAndFilters() {
+      document.getElementById('searchInput').addEventListener('input', renderRecordsTable);
+      document.getElementById('filterStatus').addEventListener('change', renderRecordsTable);
+      document.getElementById('filterArrivalCategory').addEventListener('change', renderRecordsTable);
+      document.getElementById('filterDelaySeverity').addEventListener('change', renderRecordsTable);
+    }
+
+    function resetFilters() {
+      document.getElementById('searchInput').value = '';
+      document.getElementById('filterStatus').value = 'ALL';
+      document.getElementById('filterArrivalCategory').value = 'ALL';
+      document.getElementById('filterDelaySeverity').value = 'ALL';
+      renderRecordsTable();
+    }
+
+    function switchTab(tabName) {
+      const vDash = document.getElementById('viewDashboard');
+      const vAn = document.getElementById('viewAnalytics');
+      const btnDash = document.getElementById('navDashboard');
+      const btnAn = document.getElementById('navAnalytics');
+
+      if (tabName === 'analytics') {
+        vDash.classList.add('hidden');
+        vAn.classList.remove('hidden');
+        btnDash.classList.remove('active-tab');
+        btnAn.classList.add('active-tab');
+        updateAnalyticsReport();
+      } else {
+        vAn.classList.add('hidden');
+        vDash.classList.remove('hidden');
+        btnAn.classList.remove('active-tab');
+        btnDash.classList.add('active-tab');
+        renderRecordsTable();
+      }
+    }
+
+    function renderRecordsTable() {
+      const tbody = document.getElementById('recordsTableBody');
+      const emptyState = document.getElementById('emptyState');
+
+      const query = document.getElementById('searchInput').value.toLowerCase().trim();
+      const statusFilter = document.getElementById('filterStatus').value;
+      const categoryFilter = document.getElementById('filterArrivalCategory').value;
+      const severityFilter = document.getElementById('filterDelaySeverity').value;
+
+      const filtered = records.filter(rec => {
+        const delay = computeDelayHours(rec.origArrivalTime, rec.actualArrivalTime);
+        const category = computeArrivalCategory(rec.origFlightNo, rec.plannedFlightNo, rec.actualFlightNo);
+
+        const matchesQuery = 
+          rec.fileNumber.toLowerCase().includes(query) ||
+          rec.paxName.toLowerCase().includes(query) ||
+          rec.tagNumber.toLowerCase().includes(query) ||
+          (rec.rushTagNumber && rec.rushTagNumber.toLowerCase().includes(query)) ||
+          rec.origFlightNo.toLowerCase().includes(query) ||
+          rec.actualFlightNo.toLowerCase().includes(query) ||
+          rec.agentName.toLowerCase().includes(query);
+
+        const matchesStatus = statusFilter === 'ALL' || rec.bagStatus === statusFilter;
+        const matchesCategory = categoryFilter === 'ALL' || category === categoryFilter;
+
+        let matchesSeverity = true;
+        if (severityFilter === 'LOW') matchesSeverity = delay < 12;
+        else if (severityFilter === 'MEDIUM') matchesSeverity = delay >= 12 && delay <= 24;
+        else if (severityFilter === 'CRITICAL') matchesSeverity = delay > 24;
+
+        return matchesQuery && matchesStatus && matchesCategory && matchesSeverity;
+      });
+
+      tbody.innerHTML = '';
+
+      if (filtered.length === 0) {
+        emptyState.classList.remove('hidden');
+      } else {
+        emptyState.classList.add('hidden');
+
+        filtered.forEach(item => {
+          const delayHrs = computeDelayHours(item.origArrivalTime, item.actualArrivalTime);
+          const category = computeArrivalCategory(item.origFlightNo, item.plannedFlightNo, item.actualFlightNo);
+
+          // Delay Badge
+          let delayBadge = '';
+          if (delayHrs < 12) {
+            delayBadge = `<span class="bg-emerald-950 text-emerald-400 font-bold px-2 py-0.5 rounded text-[11px] font-mono border border-emerald-800">${delayHrs} hrs</span>`;
+          } else if (delayHrs <= 24) {
+            delayBadge = `<span class="bg-amber-950 text-amber-300 font-bold px-2 py-0.5 rounded text-[11px] font-mono border border-amber-800">${delayHrs} hrs</span>`;
+          } else {
+            delayBadge = `<span class="bg-red-950 text-red-400 font-bold px-2 py-0.5 rounded text-[11px] font-mono border border-red-800"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${delayHrs} hrs</span>`;
+          }
+
+          // Category Badge
+          let categoryBadge = '';
+          if (category === 'Original Flight') {
+            categoryBadge = `<span class="bg-blue-950 text-blue-300 font-bold px-2 py-0.5 rounded border border-blue-800">Original</span>`;
+          } else if (category === 'Planned Rush Flight') {
+            categoryBadge = `<span class="bg-emerald-950 text-emerald-300 font-bold px-2 py-0.5 rounded border border-emerald-800">Planned Rush</span>`;
+          } else {
+            categoryBadge = `<span class="bg-red-950 text-red-300 font-bold px-2 py-0.5 rounded border border-red-800">Unplanned</span>`;
+          }
+
+          // Status Badge
+          let statusBadge = '';
+          if (item.bagStatus === 'Warehouse/On-Hand') {
+            statusBadge = `<span class="bg-amber-500/20 text-amber-300 font-bold px-2.5 py-0.5 rounded-full border border-amber-500/30"><i class="fa-solid fa-warehouse mr-1 text-[10px]"></i>Warehouse</span>`;
+          } else if (item.bagStatus === 'In-Transit') {
+            statusBadge = `<span class="bg-blue-500/20 text-blue-300 font-bold px-2.5 py-0.5 rounded-full border border-blue-500/30"><i class="fa-solid fa-plane-arrival mr-1 text-[10px]"></i>In-Transit</span>`;
+          } else if (item.bagStatus === 'Customs Hold') {
+            statusBadge = `<span class="bg-purple-500/20 text-purple-300 font-bold px-2.5 py-0.5 rounded-full border border-purple-500/30"><i class="fa-solid fa-shield mr-1 text-[10px]"></i>Customs</span>`;
+          } else {
+            statusBadge = `<span class="bg-emerald-500/20 text-emerald-300 font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/30"><i class="fa-solid fa-check-circle mr-1 text-[10px]"></i>Delivered</span>`;
+          }
+
+          const tr = document.createElement('tr');
+          tr.className = "hover:bg-slate-800/50 transition-colors border-b border-slate-800/60";
+          tr.innerHTML = `
+            <td class="py-3 px-3.5">
+              <span class="font-mono font-bold text-white">${escapeHtml(item.fileNumber)}</span>
+            </td>
+            <td class="py-3 px-3.5">
+              <div class="font-bold text-slate-100">${escapeHtml(item.paxName)}</div>
+            </td>
+            <td class="py-3 px-3.5">
+              <div class="font-mono font-bold text-slate-200">${escapeHtml(item.tagNumber)}</div>
+              ${item.rushTagNumber ? `<div class="text-[10px] font-mono text-et-gold font-bold"><i class="fa-solid fa-tag text-[9px]"></i> ${escapeHtml(item.rushTagNumber)}</div>` : '<div class="text-[10px] text-slate-500">No Rush Tag</div>'}
+            </td>
+            <td class="py-3 px-3.5">
+              <div class="font-bold text-slate-300">${escapeHtml(item.origFlightNo)}</div>
+              <div class="text-[10px] text-slate-400">${formatDateTime(item.origArrivalTime)}</div>
+            </td>
+            <td class="py-3 px-3.5">
+              <div class="font-bold text-slate-300">${escapeHtml(item.plannedFlightNo || 'N/A')}</div>
+              <div class="text-[10px] text-slate-400">${formatDateTime(item.plannedArrivalTime)}</div>
+            </td>
+            <td class="py-3 px-3.5">
+              <div class="font-bold text-emerald-400">${escapeHtml(item.actualFlightNo)}</div>
+              <div class="text-[10px] text-slate-400">${formatDateTime(item.actualArrivalTime)}</div>
+            </td>
+            <td class="py-3 px-3.5">${categoryBadge}</td>
+            <td class="py-3 px-3.5">${delayBadge}</td>
+            <td class="py-3 px-3.5">
+              <div class="text-slate-200 font-medium">${escapeHtml(item.baggageType || 'Suitcase')}</div>
+              <div class="text-[10px] text-slate-400 font-semibold">${item.baggageWeight ? item.baggageWeight + ' KG' : 'N/A'}</div>
+            </td>
+            <td class="py-3 px-3.5">${statusBadge}</td>
+            <td class="py-3 px-3.5 text-slate-400 text-[11px] font-medium">${escapeHtml(item.agentName)}</td>
+            <td class="py-3 px-3.5 text-right space-x-1">
+              <button onclick="printPIRDocument('${item.id}')" class="p-1.5 text-slate-400 hover:text-et-gold hover:bg-slate-800 rounded-lg transition-colors" title="Print PIR Document">
+                <i class="fa-solid fa-print"></i>
+              </button>
+              <button onclick="openRecordModal('${item.id}')" class="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-slate-800 rounded-lg transition-colors" title="Edit Entry">
+                <i class="fa-solid fa-pen-to-square"></i>
+              </button>
+              <button onclick="deleteRecord('${item.id}')" class="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors" title="Delete Entry">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      document.getElementById('recordCountDisplay').textContent = filtered.length;
+      updateDashboardKPIs();
+    }
+
+    function updateDashboardKPIs() {
+      document.getElementById('statTotal').textContent = records.length;
+      document.getElementById('statOnHand').textContent = records.filter(r => r.bagStatus === 'Warehouse/On-Hand').length;
+      document.getElementById('statInTransit').textContent = records.filter(r => r.bagStatus === 'In-Transit').length;
+      document.getElementById('statDelivered').textContent = records.filter(r => r.bagStatus === 'Delivered to Passenger').length;
+
+      if (records.length > 0) {
+        const totalDelay = records.reduce((acc, curr) => acc + computeDelayHours(curr.origArrivalTime, curr.actualArrivalTime), 0);
+        document.getElementById('statAvgDelay').innerHTML = `${(totalDelay / records.length).toFixed(1)} <span class="text-xs font-semibold">hrs</span>`;
+      } else {
+        document.getElementById('statAvgDelay').innerHTML = `0 <span class="text-xs font-semibold">hrs</span>`;
+      }
+
+      const unplanned = records.filter(r => computeArrivalCategory(r.origFlightNo, r.plannedFlightNo, r.actualFlightNo) === 'Unplanned / Alternative Flight').length;
+      document.getElementById('statUnplanned').textContent = unplanned;
+    }
+
+    function openRecordModal(editId = null) {
+      const modal = document.getElementById('recordModal');
+      const form = document.getElementById('recordForm');
+      const title = document.getElementById('modalHeaderTitle');
+
+      form.reset();
+
+      if (editId) {
+        const rec = records.find(r => r.id === editId);
+        if (rec) {
+          title.textContent = "Edit BJR Delayed Baggage Entry";
+          document.getElementById('editRecordId').value = rec.id;
+          document.getElementById('agentName').value = rec.agentName;
+          document.getElementById('fileNumber').value = rec.fileNumber;
+          document.getElementById('paxName').value = rec.paxName;
+          document.getElementById('tagNumber').value = rec.tagNumber;
+          document.getElementById('rushTagNumber').value = rec.rushTagNumber || '';
+          document.getElementById('baggageType').value = rec.baggageType || 'Suitcase / Hard Shell';
+          document.getElementById('baggageWeight').value = rec.baggageWeight || '';
+          document.getElementById('origFlightNo').value = rec.origFlightNo;
+          document.getElementById('origArrivalTime').value = rec.origArrivalTime;
+          document.getElementById('plannedFlightNo').value = rec.plannedFlightNo || '';
+          document.getElementById('plannedArrivalTime').value = rec.plannedArrivalTime || '';
+          document.getElementById('actualFlightNo').value = rec.actualFlightNo;
+          document.getElementById('actualArrivalTime').value = rec.actualArrivalTime;
+          document.getElementById('delayReason').value = rec.delayReason;
+          document.getElementById('bagStatus').value = rec.bagStatus;
+          document.getElementById('remarks').value = rec.remarks || '';
+          calculateDelayLive();
+        }
+      } else {
+        title.textContent = "Register BJR Delayed Baggage Entry";
+        document.getElementById('editRecordId').value = '';
+        document.getElementById('agentName').value = 'BJR Duty Officer';
+        document.getElementById('fileNumber').value = 'BJRET' + Math.floor(10000 + Math.random() * 90000);
+      }
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeRecordModal() {
+      document.getElementById('recordModal').classList.add('hidden');
+    }
+
+    function calculateDelayLive() {
+      const orig = document.getElementById('origArrivalTime').value;
+      const actual = document.getElementById('actualArrivalTime').value;
+      const badge = document.getElementById('badgeDelayCalc');
+
+      if (orig && actual) {
+        const hrs = computeDelayHours(orig, actual);
+        badge.textContent = `Computed Delay: ${hrs} hrs`;
+      } else {
+        badge.textContent = `Computed Delay: 0.0 hrs`;
+      }
+    }
+
+    function saveRecord(e) {
+      e.preventDefault();
+
+      const id = document.getElementById('editRecordId').value;
+      const newEntry = {
+        id: id || 'BJR-' + Math.floor(2000 + Math.random() * 8000),
+        agentName: document.getElementById('agentName').value,
+        fileNumber: document.getElementById('fileNumber').value.toUpperCase(),
+        station: 'BJR',
+        paxName: document.getElementById('paxName').value.toUpperCase(),
+        tagNumber: document.getElementById('tagNumber').value.toUpperCase(),
+        rushTagNumber: document.getElementById('rushTagNumber').value.toUpperCase(),
+        baggageType: document.getElementById('baggageType').value,
+        baggageWeight: document.getElementById('baggageWeight').value,
+        origFlightNo: document.getElementById('origFlightNo').value.toUpperCase(),
+        origArrivalTime: document.getElementById('origArrivalTime').value,
+        plannedFlightNo: document.getElementById('plannedFlightNo').value.toUpperCase(),
+        plannedArrivalTime: document.getElementById('plannedArrivalTime').value,
+        actualFlightNo: document.getElementById('actualFlightNo').value.toUpperCase(),
+        actualArrivalTime: document.getElementById('actualArrivalTime').value,
+        delayReason: document.getElementById('delayReason').value,
+        bagStatus: document.getElementById('bagStatus').value,
+        remarks: document.getElementById('remarks').value,
+        createdAt: id ? (records.find(r => r.id === id)?.createdAt || new Date().toISOString()) : new Date().toISOString()
+      };
+
+      if (id) {
+        const idx = records.findIndex(r => r.id === id);
+        if (idx !== -1) records[idx] = newEntry;
+      } else {
+        records.unshift(newEntry);
+      }
+
+      saveRecordsToStorage();
+      renderRecordsTable();
+      closeRecordModal();
+    }
+
+    function deleteRecord(id) {
+      if (confirm('Permanently delete this delayed baggage record for BJR Station?')) {
+        records = records.filter(r => r.id !== id);
+        saveRecordsToStorage();
+        renderRecordsTable();
+      }
+    }
+
+    function updateAnalyticsReport() {
+      const timeframe = document.getElementById('reportTimeframe').value;
+      let dataset = [...records];
+
+      const now = new Date();
+      if (timeframe === 'THIS_WEEK') {
+        const weekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+        dataset = records.filter(r => new Date(r.createdAt) >= weekAgo);
+      } else if (timeframe === 'THIS_MONTH') {
+        const monthAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+        dataset = records.filter(r => new Date(r.createdAt) >= monthAgo);
+      }
+
+      document.getElementById('repTotalBags').textContent = dataset.length;
+
+      const totalHours = dataset.reduce((acc, curr) => acc + computeDelayHours(curr.origArrivalTime, curr.actualArrivalTime), 0);
+      const avgHours = dataset.length > 0 ? (totalHours / dataset.length).toFixed(1) : '0';
+      document.getElementById('repAvgDelay').innerHTML = `${avgHours} <span class="text-sm font-semibold">hrs</span>`;
+
+      let origCount = 0, plannedCount = 0, unplannedCount = 0;
+      dataset.forEach(r => {
+        const cat = computeArrivalCategory(r.origFlightNo, r.plannedFlightNo, r.actualFlightNo);
+        if (cat === 'Planned Rush Flight') plannedCount++;
+        else if (cat === 'Unplanned / Alternative Flight') unplannedCount++;
+        else origCount++;
+      });
+
+      const plannedPct = dataset.length > 0 ? ((plannedCount / dataset.length) * 100).toFixed(1) : '0';
+      const unplannedPct = dataset.length > 0 ? ((unplannedCount / dataset.length) * 100).toFixed(1) : '0';
+
+      document.getElementById('repPlannedEfficiency').textContent = `${plannedPct}%`;
+      document.getElementById('repUnplannedRate').textContent = `${unplannedPct}%`;
+
+      const low = dataset.filter(r => computeDelayHours(r.origArrivalTime, r.actualArrivalTime) < 12).length;
+      const med = dataset.filter(r => {
+        const h = computeDelayHours(r.origArrivalTime, r.actualArrivalTime);
+        return h >= 12 && h <= 24;
+      }).length;
+      const crit = dataset.filter(r => computeDelayHours(r.origArrivalTime, r.actualArrivalTime) > 24).length;
+
+      document.getElementById('severityMatrixBody').innerHTML = `
+        <tr class="hover:bg-slate-800/40">
+          <td class="py-2.5 px-3 font-bold text-emerald-400">Low Delay</td>
+          <td class="py-2.5 px-3">&lt; 12 Hours</td>
+          <td class="py-2.5 px-3 font-bold">${low}</td>
+          <td class="py-2.5 px-3">${dataset.length > 0 ? ((low / dataset.length)*100).toFixed(1) : 0}%</td>
+          <td class="py-2.5 px-3 text-slate-400">Standard Warehouse Storage & Pickup</td>
+        </tr>
+        <tr class="hover:bg-slate-800/40">
+          <td class="py-2.5 px-3 font-bold text-amber-400">Medium Delay</td>
+          <td class="py-2.5 px-3">12 - 24 Hours</td>
+          <td class="py-2.5 px-3 font-bold">${med}</td>
+          <td class="py-2.5 px-3">${dataset.length > 0 ? ((med / dataset.length)*100).toFixed(1) : 0}%</td>
+          <td class="py-2.5 px-3 text-slate-400">Rush Forwarding Tracking via ADD Hub</td>
+        </tr>
+        <tr class="hover:bg-slate-800/40">
+          <td class="py-2.5 px-3 font-bold text-red-400">Critical Delay</td>
+          <td class="py-2.5 px-3">&gt; 24 Hours</td>
+          <td class="py-2.5 px-3 font-bold">${crit}</td>
+          <td class="py-2.5 px-3">${dataset.length > 0 ? ((crit / dataset.length)*100).toFixed(1) : 0}%</td>
+          <td class="py-2.5 px-3 text-slate-400">Escalate to BJR Station Manager</td>
+        </tr>
+      `;
+
+      renderAnalyticsCharts(dataset, origCount, plannedCount, unplannedCount);
+    }
+
+    function renderAnalyticsCharts(dataset, orig, planned, unplanned) {
+      const reasonCounts = {};
+      dataset.forEach(r => {
+        reasonCounts[r.delayReason] = (reasonCounts[r.delayReason] || 0) + 1;
+      });
+
+      const ctx1 = document.getElementById('chartReasons').getContext('2d');
+      if (reasonsChart) reasonsChart.destroy();
+
+      reasonsChart = new Chart(ctx1, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(reasonCounts),
+          datasets: [{
+            label: 'Delay Incidents',
+            data: Object.values(reasonCounts),
+            backgroundColor: '#006B3F',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } },
+            y: { beginAtZero: true, ticks: { color: '#94a3b8', precision: 0 }, grid: { color: '#1e293b' } }
+          }
+        }
+      });
+
+      const ctx2 = document.getElementById('chartCategories').getContext('2d');
+      if (categoriesChart) categoriesChart.destroy();
+
+      categoriesChart = new Chart(ctx2, {
+        type: 'doughnut',
+        data: {
+          labels: ['Original Flight', 'Planned Rush Flight', 'Unplanned Flight'],
+          datasets: [{
+            data: [orig, planned, unplanned],
+            backgroundColor: ['#2563eb', '#006B3F', '#dc2626'],
+            borderColor: '#0f172a',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#cbd5e1', font: { size: 11 } } }
+          }
+        }
+      });
+    }
+
+    function printPIRDocument(id) {
+      const rec = records.find(r => r.id === id);
+      if (!rec) return;
+
+      document.getElementById('pirFileNo').textContent = rec.fileNumber;
+      document.getElementById('pirPrintDate').textContent = new Date().toLocaleString();
+      document.getElementById('pirPaxName').textContent = rec.paxName;
+      document.getElementById('pirAgent').textContent = rec.agentName;
+      document.getElementById('pirTag').textContent = rec.tagNumber;
+      document.getElementById('pirRushTag').textContent = rec.rushTagNumber || 'N/A';
+      document.getElementById('pirTypeWeight').textContent = `${rec.baggageType || 'Suitcase'} (${rec.baggageWeight ? rec.baggageWeight + ' KG' : 'N/A'})`;
+      document.getElementById('pirDelayHours').textContent = computeDelayHours(rec.origArrivalTime, rec.actualArrivalTime);
+
+      document.getElementById('pirOrigFlight').textContent = rec.origFlightNo;
+      document.getElementById('pirOrigTime').textContent = formatDateTime(rec.origArrivalTime);
+      document.getElementById('pirPlannedFlight').textContent = rec.plannedFlightNo || 'N/A';
+      document.getElementById('pirPlannedTime').textContent = formatDateTime(rec.plannedArrivalTime);
+      document.getElementById('pirActualFlight').textContent = rec.actualFlightNo;
+      document.getElementById('pirActualTime').textContent = formatDateTime(rec.actualArrivalTime);
+
+      document.getElementById('pirArrivalCategory').textContent = computeArrivalCategory(rec.origFlightNo, rec.plannedFlightNo, rec.actualFlightNo);
+      document.getElementById('pirReason').textContent = rec.delayReason;
+      document.getElementById('pirRemarks').textContent = rec.remarks || 'No special remarks logged.';
+
+      window.print();
+    }
+
+    function exportCSV() {
+      if (records.length === 0) {
+        alert('No baggage data available to export.');
+        return;
+      }
+
+      const headers = [
+        "File Number", "Agent Name", "Station", "Passenger Name", "Baggage Tag", "Rush Tag",
+        "Baggage Type", "Weight (KG)", "Original Flight", "Original Scheduled Arrival", "Planned Flight",
+        "Planned Arrival", "Actual Flight", "Actual Arrival", "Arrival Category", "Delay Hours",
+        "Delay Reason", "Baggage Status", "Remarks"
+      ];
+
+      const rows = [headers.join(',')];
+
+      records.forEach(r => {
+        const delay = computeDelayHours(r.origArrivalTime, r.actualArrivalTime);
+        const category = computeArrivalCategory(r.origFlightNo, r.plannedFlightNo, r.actualFlightNo);
+
+        const row = [
+          `"${r.fileNumber}"`,
+          `"${r.agentName}"`,
+          `"${r.station}"`,
+          `"${r.paxName}"`,
+          `"${r.tagNumber}"`,
+          `"${r.rushTagNumber || ''}"`,
+          `"${r.baggageType || ''}"`,
+          `"${r.baggageWeight || ''}"`,
+          `"${r.origFlightNo}"`,
+          `"${r.origArrivalTime}"`,
+          `"${r.plannedFlightNo || ''}"`,
+          `"${r.plannedArrivalTime || ''}"`,
+          `"${r.actualFlightNo}"`,
+          `"${r.actualArrivalTime}"`,
+          `"${category}"`,
+          `"${delay}"`,
+          `"${r.delayReason}"`,
+          `"${r.bagStatus}"`,
+          `"${(r.remarks || '').replace(/"/g, '""')}"`
+        ];
+        rows.push(row.join(','));
+      });
+
+      const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `Ethiopian_Airlines_BJR_Delayed_Baggage_Report_${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function formatDateTime(dt) {
+      if (!dt) return 'N/A';
+      const d = new Date(dt);
+      if (isNaN(d.getTime())) return dt;
+      return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+  </script>
+</body>
+</html>
